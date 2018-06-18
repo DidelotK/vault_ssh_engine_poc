@@ -1,0 +1,3 @@
+vault_config_poc_root_token:
+vault_config_poc_unseal_keys:
+vault_config_poc_path_save_secrets: .

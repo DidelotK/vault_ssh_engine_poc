@@ -1,0 +1,30 @@
+---
+
+- name: Generate new ssh key.
+  shell: |
+    echo y | ssh-keygen -b {{ vault_ssh_key_size }} \
+      -t {{ vault_ssh_key_type }} \
+      -f {{ vault_ssh_key_path_to_create }}/{{ vault_ssh_key_name }} \
+      -N "{{ vault_ssh_key_passphrase }}" \
+  no_log: true
+
+- name: Login into vault.
+  copy:
+    dest: /home/{{ ansible_user }}/.vault-token
+    content: "{{ vault_ssh_key_vault_token }}"
+
+- name: Make vault sign the generated public key.
+  shell: |
+    . /etc/profile && vault write -field=signed_key ssh-client-signer/sign/admin \
+        public_key=@{{ vault_ssh_key_path_to_create }}/{{ vault_ssh_key_name }}.pub > {{ vault_ssh_key_path_to_create }}/signed-cert.pub
+
+- name: Set keys to correct permissions.
+  file:
+    path: "{{ item }}"
+    mode: 0600
+  with_items:
+    - "{{ vault_ssh_key_path_to_create }}/{{ vault_ssh_key_name }}"
+    - "{{ vault_ssh_key_path_to_create }}/{{ vault_ssh_key_name }}.pub"
+    - "{{ vault_ssh_key_path_to_create }}/signed-cert.pub"
+
+...

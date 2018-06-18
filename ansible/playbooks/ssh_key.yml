@@ -1,0 +1,16 @@
+---
+
+- hosts: localhost
+  vars:
+    path_save_secrets: ../../secrets
+  vars_files:
+    - "{{ path_save_secrets }}/vault_secrets.yml"
+  roles:
+    - role: vault-ssh-key
+      vars:
+        vault_ssh_key_path_to_create: "{{ path_save_secrets }}"
+        vault_ssh_key_vault_token: "{{ root_token }}"
+      tags:
+        - vault-ssh-key
+
+...

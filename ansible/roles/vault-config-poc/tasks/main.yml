@@ -1,0 +1,91 @@
+---
+
+- block:
+    - name: Initialise operator.
+      shell: . /etc/profile && vault operator init
+      changed_when: "'Vault is already initialized' not in vault_config_poc_operators_init_result.stderr"
+      failed_when:
+        - vault_config_poc_operators_init_result.stderr != ""
+        - "'Vault is already initialized' not in vault_config_poc_operators_init_result.stderr"
+      register: vault_config_poc_operators_init_result
+
+    - assert:
+        that:
+          - vault_config_poc_operators_init_result is changed
+        msg: "Operator already initialized but not token or unseal keys were provided."
+
+    - name: Retrieve unseal keys.
+      set_fact:
+        vault_config_poc_generated_unseal_keys: "{{ vault_config_poc_operators_init_result.stdout| regex_findall('Unseal Key \\d: (.*)') }}"
+        vault_config_poc_generated_root_token: "{{ vault_config_poc_operators_init_result.stdout | regex_findall('Initial Root Token: (.*)') | first }}"
+      no_log: true
+
+    - name: Save root token and unseals keys on local machine.
+      template:
+        src: secrets.yml.j2
+        dest: "{{ vault_config_poc_path_save_secrets }}/vault_secrets.yml"
+      no_log: true
+      delegate_to: localhost
+
+    - set_fact:
+        vault_config_poc_unseal_keys: "{{ vault_config_poc_generated_unseal_keys }}"
+        vault_config_poc_root_token: "{{ vault_config_poc_generated_root_token }}"
+      no_log: true
+
+  when:
+    - vault_config_poc_root_token is not defined or vault_config_poc_root_token is none
+    - vault_config_poc_unseal_keys is not defined or vault_config_poc_unseal_keys is none
+
+- name: Check if vault is sealed.
+  shell: . /etc/profile && vault status | grep 'Sealed' | awk '{print $2}'
+  changed_when: false
+  register: vault_config_poc_vault_sealed_status
+
+- name: Unseal vault.
+  shell: . /etc/profile && vault operator unseal {{ item }} | grep 'Sealed' | awk '{print $2}'
+  with_items: "{{ vault_config_poc_unseal_keys }}"
+  no_log: true
+  register: vault_config_poc_unseal_operation_is_sealed_result
+  when:
+    - vault_config_poc_vault_sealed_status.stdout == 'true'
+    - vault_config_poc_unseal_operation_is_sealed_result is not defined or vault_config_poc_unseal_operation_is_sealed_result.stdout == 'true'
+
+- name: Login into vault.
+  copy:
+    dest: /home/{{ ansible_user }}/.vault-token
+    content: "{{ vault_config_poc_root_token }}"
+
+- name: Enable ssh secrets engine.
+  shell: . /etc/profile && vault secrets enable -path=ssh-client-signer ssh
+  changed_when: vault_config_poc_enable_ssh_engine_result.stderr == ""
+  failed_when:
+    - vault_config_poc_enable_ssh_engine_result.stderr != ""
+    - "'existing mount' not in vault_config_poc_enable_ssh_engine_result.stderr"
+  register: vault_config_poc_enable_ssh_engine_result
+
+- name: Configure vault public key.
+  shell: . /etc/profile && vault write ssh-client-signer/config/ca generate_signing_key=true
+  changed_when: vault_config_poc_configure_ssh_public_key_result.stderr == ""
+  failed_when:
+    - vault_config_poc_configure_ssh_public_key_result.stderr != ""
+    - "'keys are already configured' not in vault_config_poc_configure_ssh_public_key_result.stderr"
+  register: vault_config_poc_configure_ssh_public_key_result
+
+- name: Create vault role for signing client keys.
+  shell: |
+    . /etc/profile && vault write ssh-client-signer/roles/admin -<<"EOH"
+    {
+      "allow_user_certificates": true,
+      "allowed_users": "*",
+      "default_extensions": [
+        {
+          "permit-pty": ""
+        }
+      ],
+      "key_type": "ca",
+      "default_user": "vagrant",
+      "ttl": "30m0s"
+    }
+    EOH
+
+...

@@ -1,0 +1,8 @@
+# Ansible
+*.retry
+
+# Secrets
+secrets/*
+
+# Keep gitkeep
+!.gitkeep

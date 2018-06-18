@@ -1,0 +1,19 @@
+---
+
+- name: Fetch ssh trusted ca public key.
+  become: yes
+  vars:
+    vault_server_ip: "{{ hostvars['vault']['ansible_host'] }}"
+  get_url:
+    url: http://{{ vault_server_ip }}:8200/v1/ssh-client-signer/public_key
+    dest: /etc/ssh/trusted-user-ca-keys.pem
+    mode: 0640
+
+- name: Configure sshd (trusted ca).
+  become: yes
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    line: "TrustedUserCAKeys /etc/ssh/trusted-user-ca-keys.pem"
+  notify: restart_ssh
+
+...

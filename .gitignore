@@ -1,0 +1,11 @@
+# Vagrant
+.vagrant
+
+# Ide
+.idea
+
+# Secrets
+secrets/*
+
+# Keep gitkeep
+!gitkeep

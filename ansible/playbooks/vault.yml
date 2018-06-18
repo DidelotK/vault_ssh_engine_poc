@@ -1,0 +1,52 @@
+---
+
+- hosts: all:localhost
+  pre_tasks:
+    - name: Install prerequisites for vault role.
+      become: yes
+      apt:
+        name: "{{ item }}"
+        update_cache: yes
+      loop:
+        - unzip
+  roles:
+    - role: vault-install-poc
+      tags:
+        - vault-install
+
+- hosts: vault
+  vars:
+    path_save_secrets: ../../secrets
+  pre_tasks:
+    - block:
+        - name: Include secrets vars if exist.
+          include_vars: "{{ item }}"
+          with_first_found:
+            - files:
+                - "{{ path_save_secrets }}/vault_secrets.yml"
+              skip: true
+          no_log: true
+          register: include_vars_result
+
+        - set_fact:
+            vault_config_poc_root_token: "{{ root_token | default('') }}"
+            vault_config_poc_unseal_keys: "{{ unseal_keys | default('') }}"
+          no_log: true
+          when: include_vars_result is not skipped
+      tags:
+        - vault-config
+
+  roles:
+    - role: vault-config-poc
+      vars:
+        vault_config_poc_path_save_secrets: "{{ path_save_secrets }}"
+      tags:
+        - vault-config
+
+- hosts: all
+  roles:
+    - role: ssh-config
+      tags:
+        - ssh-config
+
+...

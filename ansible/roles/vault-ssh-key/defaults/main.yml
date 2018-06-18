@@ -1,0 +1,6 @@
+vault_ssh_key_type: rsa
+vault_ssh_key_size: 4096
+vault_ssh_key_passphrase:
+vault_ssh_key_path_to_create: .
+vault_ssh_key_name: id_rsa_vault_key
+vault_ssh_key_vault_token:

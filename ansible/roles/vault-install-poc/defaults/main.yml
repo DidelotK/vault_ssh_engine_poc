@@ -1,0 +1,7 @@
+vault_install_poc_binary_url: https://releases.hashicorp.com/vault/0.10.2/vault_0.10.2_linux_amd64.zip
+vault_install_poc_binary_install_path: /usr/bin
+vault_install_poc_vault_user: root
+vault_install_poc_vault_group: root
+vault_install_poc_log_level: "{{ lookup('env','VAULT_LOG_LEVEL') | default('info', true) }}"
+vault_install_poc_config_path: /opt
+vault_install_poc_config_filename: config.hcl

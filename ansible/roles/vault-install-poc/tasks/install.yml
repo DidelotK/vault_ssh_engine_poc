@@ -1,0 +1,47 @@
+---
+
+- name: Install vault binary.
+  become: yes
+  unarchive:
+    src: "{{ vault_install_poc_binary_url }}"
+    dest: "{{ vault_install_poc_binary_install_path }}"
+    owner: root
+    group: root
+    mode: 0755
+    remote_src: True
+
+- name: Launch vault server.
+  block:
+    - name: Create vault config file on server.
+      become: yes
+      template:
+        src: config.hcl.j2
+        dest: "{{ vault_install_poc_config_path }}/{{ vault_install_poc_config_filename }}"
+
+    - name: Create service for vault.
+      become: yes
+      template:
+        src: vault.service.j2
+        dest: /lib/systemd/system/vault.service
+        owner: root
+        group: root
+        mode: 0644
+
+    - name: Start vault.
+      become: yes
+      service:
+        name: vault
+        state: started
+        enabled: yes
+  when: ansible_hostname == 'vault'
+
+- name: Export vault server addr.
+  become: yes
+  vars:
+    vault_server_ip: "{{ hostvars['vault']['ansible_host'] }}"
+  lineinfile:
+    path: /etc/profile
+    regexp: '^export VAULT_ADDR'
+    line: 'export VAULT_ADDR="http://{{ vault_server_ip }}:8200"'
+
+...
