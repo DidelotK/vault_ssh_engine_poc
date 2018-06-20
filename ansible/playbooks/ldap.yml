@@ -1,0 +1,9 @@
+---
+
+- hosts: ldap
+  roles:
+    - role: ldap
+      tags:
+        - ldap
+
+...

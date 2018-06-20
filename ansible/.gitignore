@@ -4,5 +4,8 @@
 # Secrets
 secrets/*
 
+# External roles
+roles/eternal
+
 # Keep gitkeep
 !.gitkeep

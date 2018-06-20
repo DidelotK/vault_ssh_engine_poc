@@ -1,0 +1,65 @@
+---
+- include_tasks: setup-RedHat.yml
+  when: ansible_os_family == 'RedHat'
+
+- include_tasks: setup-Debian.yml
+  when: ansible_os_family == 'Debian'
+
+- name: Install Docker.
+  package: name={{ docker_package }} state={{ docker_package_state }}
+
+- name: Edock
+  file:
+    path: /etc/systemd/system/docker.service.d
+    state: directory
+    mode: 0640
+
+- name: Ensure Docker is stopped before configuration.
+  service:
+    name: docker
+    state: stopped
+
+- name: Ensure Docker configuration is present.
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: root
+    group: docker
+    mode: 0640
+  with_items:
+    - { src: 'daemon.json.j2', dest: '/etc/docker/daemon.json', when: true }
+    - { src: 'docker.conf', dest: '/etc/systemd/system/docker.service.d/docker.conf', when: true }
+    - { src: 'http-proxy.conf', when: "{{ docker_use_proxy }}" }
+  when: item.when
+
+- name: Ensure Docker is started and enabled at boot.
+  systemd:
+    daemon_reload: yes
+    name: docker
+    state: started
+    enabled: yes
+
+- include_tasks: docker-compose.yml
+  when: docker_install_compose
+
+- name: Add users to docker group.
+  user:
+    name: "{{ item }}"
+    groups: docker
+    append: yes
+  with_items: "{{ docker_users }}"
+
+#- name: Reset ssh connection to allow user changes to affect 'current login user'.
+#  meta: reset_connection
+#  when: docker_should_reset_ssh == true
+
+# The previous tasks doesn't work so using a work around
+# https://github.com/ansible/ansible/issues/27520
+- name: Reset ssh connection to allow user changes to affect 'current login user'.
+  file:
+    path: ~/.ansible/cp
+    state: absent
+  become: no
+  delegate_to: localhost
+  changed_when: false
+  when: docker_reset_ssh == true
